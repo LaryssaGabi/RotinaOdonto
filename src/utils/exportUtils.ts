@@ -1,269 +1,280 @@
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { PDFDocument, rgb } from 'pdf-lib';
+import fontkit from '@pdf-lib/fontkit';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { Task } from '../types/task';
 import { DAYS_OF_WEEK } from './constants';
 
 export const exportToPDF = async (tasks: Task[]) => {
-  // Create a new PDF document
-  const pdfDoc = await PDFDocument.create();
-  
-  // Embed fonts
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  
-  // Add a new page (A4 size: 595 × 842 points)
-  let page = pdfDoc.addPage([595, 842]);
-  
-  // Initial position and margins
-  let yPosition = 800;
-  const margin = 50;
-  const lineHeight = 15;
-  
-  // Colors
-  const primaryColor = rgb(0.1, 0.1, 0.1);
-  const secondaryColor = rgb(0.4, 0.4, 0.4);
-  const headerBgColor = rgb(0.7, 0.9, 1);
-  const rowBgColor = rgb(0.96, 0.96, 0.96);
+  try {
+    // 1. Criar documento PDF
+    const pdfDoc = await PDFDocument.create();
+     pdfDoc.registerFontkit(fontkit);
 
-  // Header
-  page.drawText('Rotina Semanal', {
-    x: margin,
-    y: yPosition,
-    size: 20,
-    font: fontBold,
-    color: primaryColor,
-  });
-  yPosition -= 25;
-  
-  // Date
-  const currentDate = new Date().toLocaleDateString('pt-BR');
-  page.drawText(`Exportado em: ${currentDate}`, {
-    x: margin,
-    y: yPosition,
-    size: 12,
-    font: font,
-    color: secondaryColor,
-  });
-  yPosition -= 30;
-  
-  // Summary
-  const totalTasks = tasks.length;
-  const completedTasks = tasks.filter(task => task.checked).length;
-  const pendingTasks = totalTasks - completedTasks;
-  
-  page.drawText('Resumo:', {
-    x: margin,
-    y: yPosition,
-    size: 14,
-    font: fontBold,
-    color: primaryColor,
-  });
-  yPosition -= 20;
-  
-  page.drawText(`Total de tarefas: ${totalTasks}`, {
-    x: margin,
-    y: yPosition,
-    size: 11,
-    font: font,
-    color: primaryColor,
-  });
-  yPosition -= lineHeight;
-  
-  page.drawText(`Concluídas: ${completedTasks}`, {
-    x: margin,
-    y: yPosition,
-    size: 11,
-    font: font,
-    color: primaryColor,
-  });
-  yPosition -= lineHeight;
-  
-  page.drawText(`Pendentes: ${pendingTasks}`, {
-    x: margin,
-    y: yPosition,
-    size: 11,
-    font: font,
-    color: primaryColor,
-  });
-  yPosition -= 30;
-  
-  // Tasks by day
-  for (const day of DAYS_OF_WEEK) {
-    const dayTasks = tasks.filter(task => task.day === day.key);
+    // 2. Carregar fonte Noto Sans (suporta Unicode)
+    const fontUrl = '/fonts/NotoSans-Regular.ttf';
+    const fontResponse = await fetch(fontUrl);
+
+     if (!fontResponse.ok) {
+      throw new Error(`Erro ao carregar fonte: ${fontResponse.status}`);
+    }
     
-    if (dayTasks.length > 0) {
-      // Check if we need a new page
-      if (yPosition < 100) {
-        page = pdfDoc.addPage([595, 842]);
-        yPosition = 800;
-      }
-      
-      // Day header
-      page.drawText(day.label, {
+    const fontBytes = await fontResponse.arrayBuffer();
+    
+    // 3. Embeddar as fontes
+    const normalFont = await pdfDoc.embedFont(fontBytes);
+    const boldFont = await pdfDoc.embedFont(fontBytes, { bold: true });
+
+    // 4. Adicionar página inicial
+    let page = pdfDoc.addPage([595, 842]); // A4 em pontos (595 x 842)
+    
+    // 5. Configurações de layout
+    let yPosition = 800;
+    const margin = 50;
+    const lineHeight = 15;
+    const rowHeight = 20;
+    
+    // Cores
+    const colors = {
+      primary: rgb(0.1, 0.1, 0.1),
+      secondary: rgb(0.4, 0.4, 0.4),
+      headerBg: rgb(0.7, 0.9, 1),
+      rowBg: rgb(0.96, 0.96, 0.96)
+    };
+
+    // 6. Cabeçalho do documento
+    page.drawText('Rotina Odontológica Semanal', {
+      x: margin,
+      y: yPosition,
+      size: 20,
+      font: boldFont,
+      color: colors.primary,
+    });
+    yPosition -= 25;
+
+    // 7. Data de exportação
+    const currentDate = new Date().toLocaleDateString('pt-BR');
+    page.drawText(`Exportado em: ${currentDate}`, {
+      x: margin,
+      y: yPosition,
+      size: 12,
+      font: normalFont,
+      color: colors.secondary,
+    });
+    yPosition -= 30;
+
+    // 8. Resumo estatístico
+    const totalTasks = tasks.length;
+    const completedTasks = tasks.filter(task => task.checked).length;
+    const pendingTasks = totalTasks - completedTasks;
+
+    page.drawText('Resumo:', {
+      x: margin,
+      y: yPosition,
+      size: 14,
+      font: boldFont,
+      color: colors.primary,
+    });
+    yPosition -= 20;
+
+    const summaryLines = [
+      `Total de tarefas: ${totalTasks}`,
+      `Concluídas: ${completedTasks}`,
+      `Pendentes: ${pendingTasks}`
+    ];
+
+    summaryLines.forEach(line => {
+      page.drawText(line, {
         x: margin,
         y: yPosition,
-        size: 14,
-        font: fontBold,
-        color: primaryColor,
+        size: 11,
+        font: normalFont,
+        color: colors.primary,
       });
-      yPosition -= 20;
+      yPosition -= lineHeight;
+    });
+
+    yPosition -= 20;
+
+    // 9. Tarefas por dia
+    const columnConfig = [
+      { header: 'Status', width: 30 },
+      { header: 'Título', width: 120 },
+      { header: 'Descrição', width: 250 },
+      { header: 'Situação', width: 80 }
+    ];
+
+    for (const day of DAYS_OF_WEEK) {
+      const dayTasks = tasks.filter(task => task.day === day.key);
       
-      // Table configuration
-      const headers = ['Status', 'Título', 'Descrição', 'Situação'];
-      const columnWidths = [30, 120, 250, 80];
-      const tableX = margin;
-      const rowHeight = 20;
-      
-      // Draw table header
-      page.drawRectangle({
-        x: tableX,
-        y: yPosition - rowHeight + 5,
-        width: columnWidths.reduce((a, b) => a + b, 0),
-        height: rowHeight,
-        color: headerBgColor,
-      });
-      
-      // Draw header text
-      let xPosition = tableX;
-      for (let i = 0; i < headers.length; i++) {
-        page.drawText(headers[i], {
-          x: xPosition + 5,
-          y: yPosition - 10,
-          size: 10,
-          font: fontBold,
-          color: primaryColor,
-        });
-        xPosition += columnWidths[i];
-      }
-      yPosition -= rowHeight + 5;
-      
-      // Draw tasks rows
-      for (const task of dayTasks) {
-        // Check if we need a new page
-        if (yPosition < 50) {
+      if (dayTasks.length > 0) {
+        // Verificar espaço na página
+        if (yPosition < 150) {
           page = pdfDoc.addPage([595, 842]);
           yPosition = 800;
-          
-          // Redraw header if new page
-          page.drawRectangle({
-            x: tableX,
-            y: yPosition - rowHeight + 5,
-            width: columnWidths.reduce((a, b) => a + b, 0),
-            height: rowHeight,
-            color: headerBgColor,
+        }
+
+        // Cabeçalho do dia
+        page.drawText(day.label, {
+          x: margin,
+          y: yPosition,
+          size: 14,
+          font: boldFont,
+          color: colors.primary,
+        });
+        yPosition -= 20;
+
+        // Desenhar cabeçalho da tabela
+        const tableWidth = columnConfig.reduce((sum, col) => sum + col.width, 0);
+        
+        page.drawRectangle({
+          x: margin,
+          y: yPosition - 15,
+          width: tableWidth,
+          height: rowHeight,
+          color: colors.headerBg,
+        });
+
+        let xPosition = margin;
+        columnConfig.forEach(column => {
+          page.drawText(column.header, {
+            x: xPosition + 5,
+            y: yPosition - 10,
+            size: 10,
+            font: boldFont,
+            color: colors.primary,
           });
-          
-          xPosition = tableX;
-          for (let i = 0; i < headers.length; i++) {
-            page.drawText(headers[i], {
-              x: xPosition + 5,
-              y: yPosition - 10,
-              size: 10,
-              font: fontBold,
-              color: primaryColor,
+          xPosition += column.width;
+        });
+
+        yPosition -= rowHeight + 5;
+
+        // Desenhar tarefas
+        dayTasks.forEach((task, index) => {
+          // Verificar se precisa de nova página
+          if (yPosition < 50) {
+            page = pdfDoc.addPage([595, 842]);
+            yPosition = 800;
+            
+            // Redesenhar cabeçalho na nova página
+            page.drawRectangle({
+              x: margin,
+              y: yPosition - 15,
+              width: tableWidth,
+              height: rowHeight,
+              color: colors.headerBg,
             });
-            xPosition += columnWidths[i];
+
+            xPosition = margin;
+            columnConfig.forEach(column => {
+              page.drawText(column.header, {
+                x: xPosition + 5,
+                y: yPosition - 10,
+                size: 10,
+                font: boldFont,
+                color: colors.primary,
+              });
+              xPosition += column.width;
+            });
+
+            yPosition -= rowHeight + 5;
           }
-          yPosition -= rowHeight + 5;
-        }
-        
-        // Alternate row color
-        if (dayTasks.indexOf(task) % 2 === 0) {
-          page.drawRectangle({
-            x: tableX,
-            y: yPosition - rowHeight + 5,
-            width: columnWidths.reduce((a, b) => a + b, 0),
-            height: rowHeight,
-            color: rowBgColor,
+
+          // Alternar cores das linhas
+          if (index % 2 === 0) {
+            page.drawRectangle({
+              x: margin,
+              y: yPosition - 15,
+              width: tableWidth,
+              height: rowHeight,
+              color: colors.rowBg,
+            });
+          }
+
+          // Desenhar conteúdo da linha
+          xPosition = margin;
+
+          // Status (✓ ou ○)
+          const statusSymbol = task.checked ? '✓' : '◯';
+          
+          page.drawText(statusSymbol, {
+            x: xPosition + columnConfig[0].width/2 - 3,
+            y: yPosition - 10,
+            size: 10,
+            font: normalFont,
+            color: colors.primary,
           });
-        }
-        
-        // Draw task data
-        xPosition = tableX;
-        
-        // Status
-        page.drawText(task.checked ? '✓' : '○', {
-          x: xPosition + columnWidths[0]/2 - 3,
-          y: yPosition - 10,
-          size: 10,
-          font: font,
-          color: primaryColor,
+          xPosition += columnConfig[0].width;
+
+          // Título
+          page.drawText(task.title, {
+            x: xPosition + 5,
+            y: yPosition - 10,
+            size: 10,
+            font: normalFont,
+            color: colors.primary,
+            maxWidth: columnConfig[1].width - 10,
+          });
+          xPosition += columnConfig[1].width;
+
+          // Descrição
+          page.drawText(task.description || '-', {
+            x: xPosition + 5,
+            y: yPosition - 10,
+            size: 10,
+            font: normalFont,
+            color: colors.primary,
+            maxWidth: columnConfig[2].width - 10,
+          });
+          xPosition += columnConfig[2].width;
+
+          // Situação
+          page.drawText(task.checked ? 'Concluída' : 'Pendente', {
+            x: xPosition + 5,
+            y: yPosition - 10,
+            size: 10,
+            font: normalFont,
+            color: colors.primary,
+          });
+
+          yPosition -= rowHeight;
         });
-        xPosition += columnWidths[0];
-        
-        // Title
-        page.drawText(task.title, {
-          x: xPosition + 5,
-          y: yPosition - 10,
-          size: 10,
-          font: font,
-          color: primaryColor,
-          maxWidth: columnWidths[1] - 10,
-        });
-        xPosition += columnWidths[1];
-        
-        // Description
-        page.drawText(task.description || '-', {
-          x: xPosition + 5,
-          y: yPosition - 10,
-          size: 10,
-          font: font,
-          color: primaryColor,
-          maxWidth: columnWidths[2] - 10,
-        });
-        xPosition += columnWidths[2];
-        
-        // Status
-        page.drawText(task.checked ? 'Concluída' : 'Pendente', {
-          x: xPosition + 5,
-          y: yPosition - 10,
-          size: 10,
-          font: font,
-          color: primaryColor,
-        });
-        
-        yPosition -= rowHeight;
+
+        yPosition -= 15;
       }
-      
-      yPosition -= 15;
     }
-  }
-  
-  // Add page numbers
-  const pages = pdfDoc.getPages();
-  for (let i = 0; i < pages.length; i++) {
-    const currentPage = pages[i];
-    currentPage.drawText(`Página ${i + 1} de ${pages.length}`, {
-      x: 500,
-      y: 30,
-      size: 10,
-      font: font,
-      color: secondaryColor,
+
+    // 10. Adicionar números de página
+    const pages = pdfDoc.getPages();
+    pages.forEach((page, index) => {
+      page.drawText(`Página ${index + 1} de ${pages.length}`, {
+        x: 500,
+        y: 30,
+        size: 10,
+        font: normalFont,
+        color: colors.secondary,
+      });
     });
+
+    // 11. Salvar e baixar o PDF
+    const pdfBytes = await pdfDoc.save();
+    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+    const fileName = `rotina-odontologica-${currentDate.replace(/\//g, '-')}.pdf`;
+    
+    saveAs(blob, fileName);
+
+  } catch (error) {
+    console.error('Erro ao gerar PDF:', error);
+    throw error;
   }
-  
-  // Save the PDF
-  const pdfBytes = await pdfDoc.save();
-  
-  // Create blob and download
-  const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-  const fileName = `rotina-odontologica-${currentDate.replace(/\//g, '-')}.pdf`;
-  
-  // Trigger download
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = fileName;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
 };
 
-// Função de exportação para Excel (mantida igual)
+
+
 export const exportToExcel = (tasks: Task[]) => {
   const workbook = XLSX.utils.book_new();
   
-  // Summary sheet
+
   const summaryData = [
     ['Rotina Odontológica Semanal'],
     [''],
