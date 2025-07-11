@@ -17,4 +17,5 @@ export const DENTAL_THEME = {
     warning: '#FF9800',
     error: '#F44336'
   }
+
 };
