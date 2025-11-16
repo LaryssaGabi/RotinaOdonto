@@ -146,7 +146,7 @@ export function ReportsView() {
       <html>
       <head>
         <meta charset="utf-8">
-        <title>Relatório de Tarefas - OdontoRoutine</title>
+        <title>Relatório de Tarefas - Odonto Rotina</title>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { font-family: Arial, sans-serif; padding: 40px; background: #f9fafb; }
@@ -160,7 +160,7 @@ export function ReportsView() {
       </head>
       <body>
         <div class="header">
-          <h1>OdontoRoutine - Relatório de Tarefas</h1>
+          <h1>Odonto Routina - Relatório de Tarefas</h1>
           <p>Gerado em ${new Date().toLocaleDateString('pt-BR', {
             day: '2-digit',
             month: 'long',
