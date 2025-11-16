@@ -1,137 +1,112 @@
-import { useState } from 'react';
-import {
-  Card,
-  CardContent,
-  Typography,
-  Checkbox,
-  IconButton,
-  Menu,
-  MenuItem,
-  Box,
-  Tooltip
-} from '@mui/material';
-import { MoreVert, Edit, Delete } from '@mui/icons-material';
+import { GripVertical, Pencil, Trash2, CheckCircle2, Circle, Clock } from 'lucide-react';
 import { Task } from '../types/task';
-import { DENTAL_THEME } from '../utils/constants';
 
 interface TaskCardProps {
   task: Task;
-  onToggleCheck: (id: string, checked: boolean) => void;
   onEdit: (task: Task) => void;
   onDelete: (id: string) => void;
+  onStatusChange: (id: string, status: Task['status']) => void;
+  dragHandleProps?: any;
 }
 
-const TaskCard: React.FC<TaskCardProps> = ({ task, onToggleCheck, onEdit, onDelete }) => {
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const open = Boolean(anchorEl);
-
-  const handleClick = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleEdit = () => {
-    onEdit(task);
-    handleClose();
-  };
-
-  const handleDelete = () => {
-    onDelete(task.id);
-    handleClose();
-  };
-
-  return (
-    <Card 
-      sx={{
-        mb: 2,
-        borderRadius: 2,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        border: task.checked ? `2px solid ${DENTAL_THEME.colors.secondary}` : '1px solid #e0e0e0',
-        backgroundColor: task.checked ? DENTAL_THEME.colors.primary : DENTAL_THEME.colors.white,
-        transition: 'all 0.3s ease',
-        '&:hover': {
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-          transform: 'translateY(-2px)'
-        }
-      }}
-    >
-      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', flex: 1 }}>
-            <Checkbox
-              checked={task.checked}
-              onChange={(e) => onToggleCheck(task.id, e.target.checked)}
-              sx={{
-                color: DENTAL_THEME.colors.secondary,
-                '&.Mui-checked': {
-                  color: DENTAL_THEME.colors.secondary,
-                },
-                p: 0.5,
-                mr: 1
-              }}
-            />
-            <Box sx={{ flex: 1 }}>
-              <Typography
-                variant="subtitle2"
-                sx={{
-                  fontWeight: 600,
-                  color: task.checked ? DENTAL_THEME.colors.darkGray : '#333',
-                  textDecoration: task.checked ? 'line-through' : 'none',
-                  mb: 0.5
-                }}
-              >
-                {task.title}
-              </Typography>
-              {task.description && (
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: task.checked ? DENTAL_THEME.colors.darkGray : '#666',
-                    textDecoration: task.checked ? 'line-through' : 'none',
-                    fontSize: '0.85rem'
-                  }}
-                >
-                  {task.description}
-                </Typography>
-              )}
-            </Box>
-          </Box>
-          <Tooltip title="Opções">
-            <IconButton
-              size="small"
-              onClick={handleClick}
-              sx={{ color: DENTAL_THEME.colors.darkGray }}
-            >
-              <MoreVert />
-            </IconButton>
-          </Tooltip>
-        </Box>
-      </CardContent>
-      <Menu
-        anchorEl={anchorEl}
-        open={open}
-        onClose={handleClose}
-        PaperProps={{
-          sx: {
-            borderRadius: 2,
-            minWidth: 120
-          }
-        }}
-      >
-        <MenuItem onClick={handleEdit}>
-          <Edit fontSize="small" sx={{ mr: 1 }} />
-          Editar
-        </MenuItem>
-        <MenuItem onClick={handleDelete} sx={{ color: DENTAL_THEME.colors.error }}>
-          <Delete fontSize="small" sx={{ mr: 1 }} />
-          Excluir
-        </MenuItem>
-      </Menu>
-    </Card>
-  );
+const priorityColors = {
+  baixa: 'bg-green-100 text-green-700 border-green-200',
+  media: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+  alta: 'bg-orange-100 text-orange-700 border-orange-200',
+  urgente: 'bg-red-100 text-red-700 border-red-200',
 };
 
-export default TaskCard;
+const priorityLabels = {
+  baixa: 'Baixa',
+  media: 'Média',
+  alta: 'Alta',
+  urgente: 'Urgente',
+};
+
+export function TaskCard({ task, onEdit, onDelete, onStatusChange, dragHandleProps }: TaskCardProps) {
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'Sem data';
+    return new Date(dateString).toLocaleDateString('pt-BR');
+  };
+
+  const StatusIcon = task.status === 'concluida' ? CheckCircle2 : task.status === 'em_andamento' ? Clock : Circle;
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow">
+      <div className="flex items-start gap-3">
+        <div {...dragHandleProps} className="cursor-grab active:cursor-grabbing pt-1">
+          <GripVertical size={20} className="text-gray-400" />
+        </div>
+
+        <div className="flex-1">
+          <div className="flex items-start justify-between gap-2 mb-2">
+            <div className="flex items-start gap-2 flex-1">
+              <button
+                onClick={() => {
+                  const newStatus = task.status === 'concluida' ? 'pendente' :
+                                  task.status === 'em_andamento' ? 'concluida' : 'em_andamento';
+                  onStatusChange(task.id, newStatus);
+                }}
+                className="mt-0.5 flex-shrink-0"
+              >
+                <StatusIcon
+                  size={20}
+                  className={
+                    task.status === 'concluida' ? 'text-green-500' :
+                    task.status === 'em_andamento' ? 'text-blue-500' : 'text-gray-400'
+                  }
+                />
+              </button>
+              <div className="flex-1">
+                <h3 className={`font-semibold text-gray-800 ${task.status === 'concluida' ? 'line-through opacity-60' : ''}`}>
+                  {task.title}
+                </h3>
+                {task.description && (
+                  <p className="text-sm text-gray-600 mt-1">{task.description}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`text-xs px-2 py-1 rounded-full border font-medium ${priorityColors[task.priority]}`}>
+              {priorityLabels[task.priority]}
+            </span>
+            <span className="text-xs text-gray-500 flex items-center gap-1">
+              <Calendar size={14} />
+              {formatDate(task.due_date)}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => onEdit(task)}
+            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+            title="Editar tarefa"
+          >
+            <Pencil size={16} />
+          </button>
+          <button
+            onClick={() => onDelete(task.id)}
+            className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+            title="Excluir tarefa"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Calendar({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+      <line x1="16" y1="2" x2="16" y2="6"></line>
+      <line x1="8" y1="2" x2="8" y2="6"></line>
+      <line x1="3" y1="10" x2="21" y2="10"></line>
+    </svg>
+  );
+}
